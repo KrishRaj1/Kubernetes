@@ -1,0 +1,89 @@
+apiVersion: v1 #secret
+kind: Secret
+metadata:
+ name: mysql-Secret
+type: Opaque
+data: 
+ DB_PASSWD: amxqc2RmamRrc2RzMzIzNDM=
+
+---
+
+apiVersion: v1
+kind: ConfigMap  #configMap
+metadata:
+ name: mysql_cm
+data:
+DB_USERNAME: mysql-DB
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+name: mysql_sc       #storage
+provisoner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  fstype: ext4
+reclaimPolicy: Retain
+volumeBindingMode: waitForFirstConsumer
+
+
+
+
+---
+apiVersion: v1 
+kind: PersistenceVolumeClaim
+metadata:
+ name: mysql_pvc    #pvc
+specs:
+  accessModes:
+   - ReadWriteOnce
+  StorageClassName: mysql_sc
+  resources:
+   requests:
+    storage: 5Gi
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: mysql
+spec:
+ selector:
+  matchLabel:   #Deployment
+   name:mysql
+ strategy: 
+   type: Recreate
+ template:
+   metadata:
+     labels:
+       app:mysql
+   spec:
+    containers:
+      name: mysql
+      image: mysql:8
+      env:
+      - name: DB_PASSWD
+        valuesFrom:
+          secretKeyRef:
+           name: mysql-Secret
+           key: DB_PASSWD
+      - name: DB_USERNAME
+        valuesFrom:
+          configMapKeyRef:
+            name: mysql_cm
+            key: DB_USERNAME
+      ports:
+      - containerPort: 3306
+      volumeMounts:
+      - mountPath: /var/lib/mysql
+        name: mysql-data   
+      resources:
+        requests:
+         - memory: "512Mi"
+           cpu: "500m"
+        limits:
+        - memory: "1Gi" 
+          cpu: "1"
